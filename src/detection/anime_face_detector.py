@@ -96,14 +96,21 @@ class AnimeFaceDetector:
     def extract_face_images(
         self,
         image: np.ndarray,
-        padding: int = 20
+        padding: int = 20,
+        crop_mode: str = "face",
+        crop_padding_ratio: float = 0.5
     ) -> List[Tuple[np.ndarray, Dict]]:
         """
         从图像中提取人脸图像
 
         Args:
             image: 原始图像
-            padding: 边距（像素）
+            padding: 基础边距（像素）
+            crop_mode: 裁剪模式
+                - "face": 仅人脸
+                - "upper_body": 上半身（推荐）
+                - "full_body": 全身
+            crop_padding_ratio: 额外边距比例
 
         Returns:
             [(人脸图像, 元数据), ...] 列表
@@ -126,25 +133,58 @@ class AnimeFaceDetector:
             w = x2 - x1
             h = y2 - y1
 
-            # 计算人脸区域（上半部分）
-            face_height = int(h * self.face_crop_ratio)
-            face_y = y1
-            face_x = x1
+            # 根据裁剪模式决定提取区域
+            if crop_mode == "face":
+                # 仅人脸：使用原始的几何裁剪逻辑
+                face_height = int(h * self.face_crop_ratio)
+                face_y = y1
+                face_x = x1
 
-            # 进一步裁剪中心区域
-            center_crop_height = int(face_height * self.face_center_crop)
-            if center_crop_height < face_height:
-                center_y = face_y + (face_height - center_crop_height) // 2
-                face_y = center_y
-                face_height = center_crop_height
+                # 进一步裁剪中心区域
+                center_crop_height = int(face_height * self.face_center_crop)
+                if center_crop_height < face_height:
+                    center_y = face_y + (face_height - center_crop_height) // 2
+                    face_y = center_y
+                    face_height = center_crop_height
 
-            # 添加边距
-            face_x1 = max(0, face_x - padding)
-            face_y1 = max(0, face_y - padding)
-            face_x2 = min(image.shape[1], face_x + w + padding)
-            face_y2 = min(image.shape[0], face_y + face_height + padding)
+                # 添加边距
+                face_x1 = max(0, face_x - padding)
+                face_y1 = max(0, face_y - padding)
+                face_x2 = min(image.shape[1], face_x + w + padding)
+                face_y2 = min(image.shape[0], face_y + face_height + padding)
 
-            # 从原始图像裁剪人脸区域
+            elif crop_mode == "upper_body":
+                # 上半身：使用人物的上半部分
+                upper_body_ratio = 0.7  # 上 70%
+                upper_height = int(h * upper_body_ratio)
+                face_y = y1
+                face_x = x1
+
+                # 添加适度边距
+                expand_x = int(w * crop_padding_ratio * 0.5)
+                expand_y = int(h * crop_padding_ratio * 0.3)
+
+                face_x1 = max(0, face_x - expand_x)
+                face_y1 = max(0, face_y - expand_y)
+                face_x2 = min(image.shape[1], face_x + w + expand_x)
+                face_y2 = min(image.shape[0], face_y + upper_height + expand_y)
+
+            elif crop_mode == "full_body":
+                # 全身：使用完整的人物检测区域
+                face_x1 = max(0, x1 - padding)
+                face_y1 = max(0, y1 - padding)
+                face_x2 = min(image.shape[1], x2 + padding)
+                face_y2 = min(image.shape[0], y2 + padding)
+
+            else:
+                # 默认使用 face 模式
+                face_height = int(h * self.face_crop_ratio)
+                face_x1 = max(0, x1 - padding)
+                face_y1 = max(0, y1 - padding)
+                face_x2 = min(image.shape[1], x2 + padding)
+                face_y2 = min(image.shape[0], y1 + face_height + padding)
+
+            # 从原始图像裁剪区域
             face_image = image[face_y1:face_y2, face_x1:face_x2].copy()
 
             # 元数据
@@ -155,6 +195,7 @@ class AnimeFaceDetector:
                 'face_crop_ratio': self.face_crop_ratio,
                 'face_center_crop': self.face_center_crop,
                 'image_shape': face_image.shape,
+                'crop_mode': crop_mode,
                 'confdence': 1.0
             }
 

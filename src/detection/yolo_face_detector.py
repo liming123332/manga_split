@@ -137,14 +137,21 @@ class YOLOFaceDetector:
     def extract_face_images(
         self,
         image: np.ndarray,
-        padding: int = 20
+        padding: int = 20,
+        crop_mode: str = "face",
+        crop_padding_ratio: float = 0.5
     ) -> List[Tuple[np.ndarray, Dict]]:
         """
         从图像中提取人脸图像
 
         Args:
             image: 原始图像
-            padding: 边距（像素）
+            padding: 基础边距（像素）
+            crop_mode: 裁剪模式
+                - "face": 仅人脸
+                - "upper_body": 上半身（推荐）
+                - "full_body": 全身
+            crop_padding_ratio: 额外边距比例（相对于人脸尺寸）
 
         Returns:
             [(人脸图像, 元数据), ...] 列表
@@ -159,13 +166,39 @@ class YOLOFaceDetector:
         extracted = []
 
         for idx, (x, y, w, h) in enumerate(faces):
-            # 添加边距
-            x1 = max(0, x - padding)
-            y1 = max(0, y - padding)
-            x2 = min(image.shape[1], x + w + padding)
-            y2 = min(image.shape[0], y + h + padding)
+            # 根据裁剪模式计算边界
+            if crop_mode == "face":
+                # 仅人脸：使用基础边距
+                expand_top = padding
+                expand_bottom = padding
+                expand_left = padding
+                expand_right = padding
 
-            # 裁剪人脸区域
+            elif crop_mode == "upper_body":
+                # 上半身：向上少量，向下大量扩展
+                expand_top = int(padding * 0.5)
+                expand_bottom = int(h * 2.5)  # 向下扩展到 2.5 倍人脸高度
+                expand_left = int(w * crop_padding_ratio)
+                expand_right = int(w * crop_padding_ratio)
+
+            elif crop_mode == "full_body":
+                # 全身：尽可能扩展
+                expand_top = int(h * 0.5)  # 向上扩展 0.5 倍
+                expand_bottom = int(h * 4.0)  # 向下扩展到 4 倍
+                expand_left = int(w * crop_padding_ratio * 1.5)
+                expand_right = int(w * crop_padding_ratio * 1.5)
+
+            else:
+                # 默认使用基础边距
+                expand_top = expand_bottom = expand_left = expand_right = padding
+
+            # 计算扩展后的边界
+            x1 = max(0, x - expand_left)
+            y1 = max(0, y - expand_top)
+            x2 = min(image.shape[1], x + w + expand_right)
+            y2 = min(image.shape[0], y + h + expand_bottom)
+
+            # 裁剪区域
             face_image = image[y1:y2, x1:x2].copy()
 
             # 元数据
@@ -175,7 +208,8 @@ class YOLOFaceDetector:
                 'bbox_with_padding': (x1, y1, x2, y2),
                 'image_shape': face_image.shape,
                 'detector_type': 'YOLO',
-                'confidence': 1.0  # YOLO 的置信度需要从 results 中获取
+                'crop_mode': crop_mode,
+                'confidence': 1.0
             }
 
             extracted.append((face_image, metadata))

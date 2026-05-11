@@ -220,8 +220,16 @@ class BatchProcessor:
         metadata_list = []
 
         try:
-            # 检测人脸
-            extracted = self.detector.extract_face_images(image)
+            # 检测人脸（传递裁剪模式参数）
+            crop_mode = self.config.get('detection.crop_mode', 'upper_body')
+            crop_padding_ratio = self.config.get('detection.crop_padding_ratio', 0.5)
+
+            extracted = self.detector.extract_face_images(
+                image,
+                padding=20,  # 基础边距
+                crop_mode=crop_mode,
+                crop_padding_ratio=crop_padding_ratio
+            )
 
             if not extracted:
                 logger.debug(f"未检测到人脸: {source_path}")

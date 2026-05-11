@@ -52,6 +52,10 @@ detection:
   face_center_crop: 0.6     # 人脸中心裁剪比例（0-1，仅 SAM）
   yolo_model_path: "./models/yolov8x6_animeface.pt"  # YOLO 模型路径
 
+  # 提取范围设置
+  crop_mode: "upper_body"   # 裁剪模式: "face"(仅人脸), "upper_body"(上半身), "full_body"(全身)
+  crop_padding_ratio: 0.5   # 额外边距比例（相对于人脸尺寸）
+
 # 后处理配置
 postprocess:
   edge_blur: 3          # 边缘羽化半径

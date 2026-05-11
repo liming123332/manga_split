@@ -44,6 +44,7 @@ class MangaSplitterGUI:
         self.device = tk.StringVar(value='cuda')
         self.detection_method = tk.StringVar(value='yolo')  # 检测方法
         self.yolo_model_path = tk.StringVar(value='./models/yolov8x6_animeface.pt')  # YOLO 模型路径
+        self.crop_mode = tk.StringVar(value='upper_body')  # 裁剪模式
         self.processing = False
         self.worker_thread = None
 
@@ -142,8 +143,26 @@ class MangaSplitterGUI:
         for i, (text, value) in enumerate(devices):
             ttk.Radiobutton(device_frame, text=text, variable=self.device, value=value).grid(row=0, column=i, padx=10)
 
+        # 裁剪模式选择
+        ttk.Label(config_frame, text="提取范围:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        crop_mode_frame = ttk.Frame(config_frame)
+        crop_mode_frame.grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
+
+        crop_modes = [
+            ('仅人脸', 'face'),
+            ('上半身 (推荐)', 'upper_body'),
+            ('全身', 'full_body')
+        ]
+        for i, (text, value) in enumerate(crop_modes):
+            ttk.Radiobutton(
+                crop_mode_frame,
+                text=text,
+                variable=self.crop_mode,
+                value=value
+            ).grid(row=0, column=i, padx=8)
+
         # 高级设置按钮
-        ttk.Button(config_frame, text="高级设置...", command=self.show_advanced_settings).grid(row=5, column=0, columnspan=3, pady=10)
+        ttk.Button(config_frame, text="高级设置...", command=self.show_advanced_settings).grid(row=6, column=0, columnspan=3, pady=10)
 
         # === 操作按钮 ===
         button_frame = ttk.Frame(main_container)
@@ -337,6 +356,7 @@ class MangaSplitterGUI:
         self.log(f"输入目录: {self.input_dir.get()}")
         self.log(f"输出目录: {self.output_dir.get()}")
         self.log(f"检测方法: {self.detection_method.get()}")
+        self.log(f"提取范围: {self.crop_mode.get()}")
         if self.detection_method.get() == 'yolo':
             self.log(f"YOLO 模型: {self.yolo_model_path.get()}")
         else:
@@ -368,6 +388,9 @@ class MangaSplitterGUI:
             config.set('detection.method', self.detection_method.get())
             if self.detection_method.get() == 'yolo':
                 config.set('detection.yolo_model_path', self.yolo_model_path.get())
+
+            # 设置裁剪模式
+            config.set('detection.crop_mode', self.crop_mode.get())
 
             # 创建处理器
             processor = BatchProcessor(config)
